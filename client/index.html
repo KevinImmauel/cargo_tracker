@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CargoTwin: Shipment Tracker</title>
+  <link rel="stylesheet" href="lib/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" class="logo" aria-hidden="true">
+        <rect x="3" y="9" width="26" height="15" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 12v9M12 12v9M16 12v9M20 12v9M24 12v9" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <div>
+        <div class="brand-name">CargoTwin</div>
+        <div class="brand-sub">Shipment Integrity Monitor</div>
+      </div>
+    </div>
+
+    <div class="device">
+      <span class="label">Container</span>
+      <span id="deviceId" class="mono">-</span>
+    </div>
+
+    <div class="status">
+      <span id="connDot" class="dot off"></span>
+      <span id="connText">Disconnected</span>
+      <span id="rate" class="mono muted"></span>
+    </div>
+
+    <div class="actions">
+      <button id="btnDemo" class="btn" title="Simulated data, no hardware needed">▶ Demo</button>
+      <div class="ws-group">
+        <input id="mqttUrl" class="input mono" value="ws://localhost:9001" spellcheck="false" title="MQTT broker WebSocket URL (Mosquitto default: ws://localhost:9001)" />
+        <button id="btnMqtt" class="btn primary">MQTT</button>
+      </div>
+      <button id="btnDisconnect" class="btn ghost" hidden>Disconnect</button>
+      <button id="btnSettings" class="btn ghost icon" title="Settings">⚙</button>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- DIGITAL TWIN -->
+    <section class="panel twin-panel">
+      <div class="panel-head">
+        <h2>Digital Twin</h2>
+        <div class="head-tools">
+          <button class="chip" data-view="iso">Iso</button>
+          <button class="chip" data-view="side">Side</button>
+          <button class="chip" data-view="front">End</button>
+          <button class="chip" data-view="top">Top</button>
+          <button class="chip" id="btnFollow" title="Auto-rotate camera">Orbit</button>
+          <button class="chip" id="btnFull" title="Full-screen 3D view (Esc to exit)">Full screen</button>
+        </div>
+      </div>
+      <div id="twin" class="twin">
+        <div id="alarmBanner" class="alarm-banner" hidden>
+          <strong id="alarmTitle">TILT ALERT</strong>
+          <span id="alarmDetail"></span>
+        </div>
+        <div class="hud">
+          <div><span>ROLL</span><b id="hudRoll">0.0°</b></div>
+          <div><span>PITCH</span><b id="hudPitch">0.0°</b></div>
+          <div><span>YAW</span><b id="hudYaw">0.0°</b></div>
+          <div><span>TILT</span><b id="hudTilt">0.0°</b></div>
+        </div>
+        <div class="legend">
+          <span><i class="sw sw-ghost"></i>Level reference</span>
+          <span><i class="sw sw-ring"></i>Tilt limit</span>
+          <span><i class="sw sw-up"></i>Container up-vector</span>
+        </div>
+        <div id="incidentBanner" class="incident-banner" hidden>
+          <div>
+            <strong>Incident replay</strong>
+            <span id="incidentDetail"></span>
+            <small>Red ghost = container position at the moment of the incident</small>
+          </div>
+          <button id="btnIncidentClose" class="btn small ghost" title="Close replay">&#x2715;</button>
+        </div>
+        <div id="noData" class="no-data">
+          <p>No data yet.</p>
+          <p class="muted">Click <b>Demo</b> to simulate, or click <b>MQTT</b> to connect to your local broker.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE METRICS -->
+    <section class="panel metrics-panel">
+      <div class="panel-head"><h2>Live Telemetry</h2><span id="clock" class="mono muted">-</span></div>
+      <div class="tiles">
+        <div class="tile" id="tileTilt">
+          <span class="t-label">Tilt from vertical</span>
+          <span class="t-value"><b id="vTilt">0.0</b><small>°</small></span>
+          <div class="bar"><div id="barTilt"></div><i id="barThr"></i></div>
+        </div>
+        <div class="tile">
+          <span class="t-label">Roll</span>
+          <span class="t-value"><b id="vRoll">0.0</b><small>°</small></span>
+        </div>
+        <div class="tile">
+          <span class="t-label">Pitch</span>
+          <span class="t-value"><b id="vPitch">0.0</b><small>°</small></span>
+        </div>
+        <div class="tile" id="tileG">
+          <span class="t-label">G-force</span>
+          <span class="t-value"><b id="vG">1.00</b><small>g</small></span>
+        </div>
+        <div class="tile">
+          <span class="t-label">Temperature</span>
+          <span class="t-value"><b id="vTemp">-</b><small>°C</small></span>
+        </div>
+        <div class="tile">
+          <span class="t-label">GPS</span>
+          <span class="t-value"><b id="vSats">-</b><small id="vFix">no fix</small></span>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-head">
+          <span class="muted">Last 30 s</span>
+          <span class="keys">
+            <span><i style="background:var(--c-tilt)"></i>Tilt</span>
+            <span><i style="background:var(--c-roll)"></i>Roll</span>
+            <span><i style="background:var(--c-pitch)"></i>Pitch</span>
+            <span><i class="dash"></i>Limit</span>
+          </span>
+        </div>
+        <canvas id="chart"></canvas>
+      </div>
+
+      <div class="controls">
+        <label class="ctl">
+          <span>Tilt threshold <b id="thrVal" class="mono">30°</b></span>
+          <input id="thr" type="range" min="5" max="60" step="1" value="30" />
+        </label>
+        <label class="ctl">
+          <span>Shock threshold <b id="shockVal" class="mono">2.0 g</b></span>
+          <input id="shock" type="range" min="1.2" max="6" step="0.1" value="2.0" />
+        </label>
+        <div class="ctl-buttons">
+          <button id="btnLevel" class="btn small">Set level</button>
+          <button id="btnYaw" class="btn small">Reset yaw</button>
+          <button id="btnSound" class="btn small ghost">🔔 Sound on</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- MAP -->
+    <section class="panel map-panel">
+      <div class="panel-head">
+        <h2>Position</h2>
+        <span id="pos" class="mono muted">-</span>
+      </div>
+      <div id="map" class="map"></div>
+    </section>
+
+    <!-- EVENT LOG -->
+    <section class="panel events-panel">
+      <div class="panel-head">
+        <h2>Incident Log <span id="evCount" class="count">0</span></h2>
+        <div class="head-tools">
+          <button id="btnDump" class="chip" title="Download events stored in the device's flash">Load from device</button>
+          <button id="btnCsv" class="chip">Export CSV</button>
+          <button id="btnClear" class="chip danger">Clear</button>
+        </div>
+      </div>
+      <div class="summary">
+        <div><span>Integrity</span><b id="sumStatus" class="status-ok">Intact</b></div>
+        <div><span>Incidents</span><b id="sumCount">0</b></div>
+        <div><span>Max tilt</span><b id="sumTilt">-</b></div>
+        <div><span>Max shock</span><b id="sumShock">-</b></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Time (UTC)</th><th>Type</th><th>Peak</th><th>Duration</th><th>Roll / Pitch</th><th>Location</th></tr>
+          </thead>
+          <tbody id="evBody"></tbody>
+        </table>
+        <div id="evEmpty" class="empty">No incidents recorded. Events appear here when tilt exceeds the threshold or a shock is detected. Click any incident to replay it on the 3D twin.</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- device console -->
+  <details class="console">
+    <summary>Device console <span id="consoleLast" class="muted"></span></summary>
+    <pre id="consoleLog"></pre>
+  </details>
+
+  <!-- settings dialog -->
+  <dialog id="settings">
+    <form method="dialog">
+      <h3>Sensor mounting</h3>
+      <p class="muted">If the 3D container moves the wrong way compared to the real box, flip the axes here. Saved in this browser.</p>
+      <label class="check"><input type="checkbox" id="optInvRoll" /> Invert roll</label>
+      <label class="check"><input type="checkbox" id="optInvPitch" /> Invert pitch</label>
+      <label class="check"><input type="checkbox" id="optInvYaw" /> Invert yaw</label>
+      <label class="check"><input type="checkbox" id="optSwap" /> Swap roll ↔ pitch (sensor mounted sideways)</label>
+      <label class="check"><input type="checkbox" id="optNoYaw" /> Ignore yaw (gyro yaw drifts over time)</label>
+      <div class="dialog-actions">
+        <button class="btn primary" value="ok">Done</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MQTT.js: browser MQTT over WebSocket -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="lib/three.min.js"></script>
+  <script src="lib/OrbitControls.js"></script>
+  <script src="lib/leaflet.js"></script>
+  <script src="twin.js"></script>
+  <script src="sim.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+mosquitto_sub -h localhost -p 1883 -t "shipment/#" -v
+
+source venv/bin/activate.fish
+
