@@ -34,11 +34,12 @@
     <div class="actions">
       <button id="btnDemo" class="btn" title="Simulated data, no hardware needed">▶ Demo</button>
       <div class="ws-group">
-        <input id="mqttUrl" class="input mono" value="ws://localhost:9001" spellcheck="false" title="MQTT broker WebSocket URL (Mosquitto default: ws://localhost:9001)" />
+        <input id="mqttUrl" class="input mono" value="ws://localhost:9001" spellcheck="false" title="MQTT broker WebSocket URL" />
         <button id="btnMqtt" class="btn primary">MQTT</button>
       </div>
       <button id="btnDisconnect" class="btn ghost" hidden>Disconnect</button>
       <button id="btnSettings" class="btn ghost icon" title="Settings">⚙</button>
+      <a href="about.html" class="nav-link" title="About this project">ℹ About</a>
     </div>
   </header>
 
@@ -60,6 +61,7 @@
         <div id="alarmBanner" class="alarm-banner" hidden>
           <strong id="alarmTitle">TILT ALERT</strong>
           <span id="alarmDetail"></span>
+          <span id="alarmForce" style="color:var(--warn);font-size:11px;"></span>
         </div>
         <div class="hud">
           <div><span>ROLL</span><b id="hudRoll">0.0°</b></div>
@@ -113,8 +115,42 @@
           <span class="t-value"><b id="vTemp">-</b><small>°C</small></span>
         </div>
         <div class="tile">
-          <span class="t-label">GPS</span>
+          <span class="t-label">GPS Lock</span>
           <span class="t-value"><b id="vSats">-</b><small id="vFix">no fix</small></span>
+          <div class="t-sub" id="vSpeed">-</div>
+        </div>
+        <!-- Impact Force tile -->
+        <div class="tile" id="tileForce" style="grid-column: span 3;">
+          <span class="t-label">Impact Force</span>
+          <span class="t-value"><b id="vForceN">-</b><small>N</small></span>
+          <div class="t-sub" id="vForceSub">Peak: - N &nbsp;|&nbsp; - kN</div>
+        </div>
+      </div>
+
+      <!-- Force Analysis -->
+      <div class="force-analysis">
+        <div class="force-analysis-title">⚡ Force Analysis</div>
+        <div class="force-zones">
+          <div class="force-zone fz-safe" id="fz-safe">
+            <div class="fz-dot" style="background:var(--ok)"></div>
+            <span class="fz-range">&lt; 1.2 g</span>
+            <span class="fz-label">Normal transport vibration</span>
+          </div>
+          <div class="force-zone fz-caution" id="fz-caution">
+            <div class="fz-dot" style="background:var(--warn)"></div>
+            <span class="fz-range">1.2 – 2.0 g</span>
+            <span class="fz-label">Moderate handling stress</span>
+          </div>
+          <div class="force-zone fz-warning" id="fz-warning">
+            <div class="fz-dot" style="background:#ff8c42"></div>
+            <span class="fz-range">2.0 – 4.0 g</span>
+            <span class="fz-label">Heavy impact — inspect cargo</span>
+          </div>
+          <div class="force-zone fz-critical" id="fz-critical">
+            <div class="fz-dot" style="background:var(--bad)"></div>
+            <span class="fz-range">&gt; 4.0 g</span>
+            <span class="fz-label">SEVERE IMPACT — possible damage</span>
+          </div>
         </div>
       </div>
 
@@ -140,6 +176,10 @@
           <span>Shock threshold <b id="shockVal" class="mono">2.0 g</b></span>
           <input id="shock" type="range" min="1.2" max="6" step="0.1" value="2.0" />
         </label>
+        <label class="ctl">
+          <span>Cargo Weight <b id="weightVal" class="mono">5000 kg</b></span>
+          <input id="cargoWeight" type="range" min="500" max="30000" step="100" value="5000" />
+        </label>
         <div class="ctl-buttons">
           <button id="btnLevel" class="btn small">Set level</button>
           <button id="btnYaw" class="btn small">Reset yaw</button>
@@ -155,6 +195,36 @@
         <span id="pos" class="mono muted">-</span>
       </div>
       <div id="map" class="map"></div>
+
+      <!-- Route Progress Bar -->
+      <div class="route-progress">
+        <div class="rp-header">
+          <div class="rp-title">🛣 Route Progress</div>
+          <div class="rp-eta" id="rpEta">ETA: —</div>
+        </div>
+        <div class="rp-labels">
+          <div class="rp-orig">
+            <small>DISPATCH</small>
+            MS Palya
+          </div>
+          <div style="font:600 11px var(--mono); color:var(--accent)" id="rpPct">0%</div>
+          <div class="rp-dest">
+            <small>DELIVERY</small>
+            Presidency Univ.
+          </div>
+        </div>
+        <div class="rp-bar-wrap" id="rpBarWrap">
+          <div class="rp-bar-fill" id="rpBarFill"></div>
+          <div class="rp-milestone" style="left:25%"><span>25%</span></div>
+          <div class="rp-milestone" style="left:50%"><span>50%</span></div>
+          <div class="rp-milestone" style="left:75%"><span>75%</span></div>
+          <div class="rp-truck" id="rpTruck"></div>
+        </div>
+        <div class="rp-stats">
+          <span>Remaining: <b id="rpRemain">—</b></span>
+          <span>Speed: <b id="rpSpeed">—</b></span>
+        </div>
+      </div>
     </section>
 
     <!-- EVENT LOG -->
@@ -168,7 +238,8 @@
         </div>
       </div>
       <div class="summary">
-        <div><span>Integrity</span><b id="sumStatus" class="status-ok">Intact</b></div>
+        <div><span>Integrity</span><b id="sumStatus" class="status-ok">Intact ✓</b></div>
+        <div><span>Score</span><b id="sumScore" class="status-ok">100%</b></div>
         <div><span>Incidents</span><b id="sumCount">0</b></div>
         <div><span>Max tilt</span><b id="sumTilt">-</b></div>
         <div><span>Max shock</span><b id="sumShock">-</b></div>
@@ -176,7 +247,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Time (UTC)</th><th>Type</th><th>Peak</th><th>Duration</th><th>Roll / Pitch</th><th>Location</th></tr>
+            <tr><th>Time (UTC)</th><th>Type</th><th>Peak</th><th>Force (N)</th><th>Duration</th><th>Roll / Pitch</th><th>Location</th></tr>
           </thead>
           <tbody id="evBody"></tbody>
         </table>
@@ -207,7 +278,6 @@
     </form>
   </dialog>
 
-  <!-- MQTT.js: browser MQTT over WebSocket -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script src="lib/three.min.js"></script>
   <script src="lib/OrbitControls.js"></script>

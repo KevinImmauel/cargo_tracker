@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About — CargoTwin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:      #0a1018;
+      --bg-2:    #0f1722;
+      --panel:   #121c29;
+      --panel-2: #172333;
+      --line:    #22324a;
+      --text:    #e4ecf5;
+      --muted:   #7d8ea5;
+      --accent:  #3aa0ff;
+      --ok:      #2ecc8f;
+      --warn:    #f5b142;
+      --bad:     #ff4d5e;
+      --mono:    "Space Mono", "Cascadia Mono", Consolas, monospace;
+      --sans:    "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.65 var(--sans);
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* ── animated grid background ── */
+    body::before {
+      content: "";
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(58,160,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(58,160,255,.035) 1px, transparent 1px),
+        radial-gradient(ellipse 70% 50% at 15% 5%,  rgba(58,160,255,.06) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 35% at 85% 90%, rgba(46,204,143,.04) 0%, transparent 60%);
+      background-size: 52px 52px, 52px 52px, 100% 100%, 100% 100%;
+      animation: drift 28s linear infinite;
+    }
+    @keyframes drift {
+      to { background-position: 52px 52px, 52px 52px, 0 0, 0 0; }
+    }
+
+    /* scanlines */
+    body::after {
+      content: "";
+      position: fixed; inset: 0; z-index: 1; pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent, transparent 3px,
+        rgba(0,0,0,.055) 3px, rgba(0,0,0,.055) 4px
+      );
+    }
+
+    /* ── page shell ── */
+    .shell {
+      position: relative; z-index: 2;
+      max-width: 980px; margin: 0 auto; padding: 0 24px 100px;
+    }
+
+    /* ── topbar ── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 18px 0 22px;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo  { width: 34px; height: 34px; color: var(--accent); filter: drop-shadow(0 0 7px rgba(58,160,255,.55)); }
+    .brand-name {
+      font: 700 18px var(--mono); letter-spacing: 1.5px;
+      color: var(--accent); text-shadow: 0 0 18px rgba(58,160,255,.4);
+    }
+    .brand-sub { font: 400 10px var(--mono); color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+
+    .back-link {
+      display: inline-flex; align-items: center; gap: 8px;
+      font: 500 13px var(--mono); color: var(--muted); text-decoration: none;
+      border: 1px solid var(--line); border-radius: 6px; padding: 8px 14px;
+      letter-spacing: .5px;
+      transition: color .15s, border-color .15s;
+    }
+    .back-link:hover { color: var(--accent); border-color: var(--accent); }
+    .back-link svg { width: 14px; height: 14px; }
+
+    /* ── hero ── */
+    .hero {
+      padding: 70px 0 52px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-eyebrow {
+      font: 400 11px var(--mono); letter-spacing: 3px; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 14px;
+    }
+    .hero-title {
+      font: 700 52px/1.0 var(--mono); letter-spacing: -1px;
+      color: var(--text);
+      text-shadow: 0 0 60px rgba(58,160,255,.2);
+    }
+    .hero-title em { font-style: normal; color: var(--accent); }
+    .hero-desc {
+      margin-top: 18px;
+      font: 300 16px/1.7 var(--sans); color: #9db5cc;
+      max-width: 560px;
+    }
+    .hero-meta {
+      display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+      font: 11px var(--mono); color: var(--muted); text-align: right;
+      flex-shrink: 0;
+    }
+    .hero-meta .kv { display: flex; flex-direction: column; gap: 2px; }
+    .hero-meta .kv span:first-child { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #3f5572; }
+    .hero-meta .kv span:last-child  { color: var(--accent); }
+    @media (max-width: 640px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-title { font-size: 36px; }
+      .hero-meta { align-items: flex-start; text-align: left; }
+    }
+
+    /* ── section ── */
+    .section { padding-top: 60px; }
+
+    .section-label {
+      font: 700 10px var(--mono); letter-spacing: 3px; text-transform: uppercase;
+      color: var(--accent); opacity: .7; margin-bottom: 6px;
+    }
+    .section-title {
+      font: 600 22px var(--sans); color: var(--text); letter-spacing: -.3px;
+      margin-bottom: 28px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    /* ── two-col prose ── */
+    .two-col {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 32px;
+    }
+    .two-col p { font: 400 14px/1.75 var(--sans); color: #9db5cc; }
+    .two-col p + p { margin-top: 12px; }
+    .hi { color: var(--accent); font-weight: 500; }
+    .hi-ok { color: var(--ok); font-weight: 500; }
+    @media (max-width: 680px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* ── spec rows (hardware/software) ── */
+    .spec-rows { display: flex; flex-direction: column; gap: 1px; }
+    .spec-row {
+      display: grid;
+      grid-template-columns: 220px 1fr auto;
+      align-items: start;
+      gap: 16px;
+      padding: 16px 0;
+      border-bottom: 1px solid rgba(34,50,74,.7);
+    }
+    .spec-row:first-child { border-top: 1px solid rgba(34,50,74,.7); }
+    .spec-row-name {
+      font: 600 13px var(--mono); color: var(--text); letter-spacing: .3px;
+    }
+    .spec-row-name small {
+      display: block; font: 400 10px var(--mono); color: var(--muted); margin-top: 3px; letter-spacing: .5px;
+    }
+    .spec-row-desc { font: 400 13px var(--sans); color: #8da5bc; line-height: 1.6; }
+    .spec-row-tags { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; flex-shrink: 0; }
+    .pill {
+      display: inline-block; padding: 2px 9px; border-radius: 4px;
+      font: 600 10px var(--mono); letter-spacing: .8px;
+      background: rgba(58,160,255,.08); color: var(--accent);
+      border: 1px solid rgba(58,160,255,.18);
+      white-space: nowrap;
+    }
+    .pill.ok  { background: rgba(46,204,143,.08); color: var(--ok);  border-color: rgba(46,204,143,.2); }
+    .pill.dim { background: rgba(255,255,255,.04); color: var(--muted); border-color: rgba(255,255,255,.08); }
+    @media (max-width: 700px) {
+      .spec-row { grid-template-columns: 1fr; }
+      .spec-row-tags { align-items: flex-start; flex-direction: row; flex-wrap: wrap; }
+    }
+
+    /* ── pipeline / how it works ── */
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      position: relative;
+    }
+    .pipeline::before {
+      content: "";
+      position: absolute;
+      top: 32px; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent) 20%, var(--accent) 80%, transparent);
+      opacity: .25;
+    }
+    .pipe-step {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 0 8px;
+      text-align: center;
+    }
+    .pipe-node {
+      width: 64px; height: 64px; border-radius: 50%;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      display: flex; align-items: center; justify-content: center;
+      font: 700 11px var(--mono); color: var(--accent);
+      letter-spacing: 1px;
+      position: relative; z-index: 1;
+      flex-shrink: 0;
+    }
+    .pipe-step.active .pipe-node {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(58,160,255,.25), inset 0 0 12px rgba(58,160,255,.07);
+    }
+    .pipe-name  { font: 600 12px var(--sans); color: var(--text); }
+    .pipe-tech  { font: 400 11px var(--mono); color: var(--muted); line-height: 1.4; }
+    @media (max-width: 700px) {
+      .pipeline { grid-template-columns: 1fr; gap: 0; }
+      .pipeline::before { display: none; }
+      .pipe-step {
+        flex-direction: row; text-align: left; align-items: flex-start;
+        padding: 14px 0; border-bottom: 1px solid var(--line);
+      }
+      .pipe-step:last-child { border-bottom: none; }
+      .pipe-node { flex-shrink: 0; }
+      .pipe-name, .pipe-tech { text-align: left; }
+    }
+
+    /* ── spec table ── */
+    .table-block {
+      border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .table-block-title {
+      padding: 10px 16px;
+      background: var(--panel-2);
+      font: 600 10px var(--mono); letter-spacing: 2px; text-transform: uppercase;
+      color: var(--accent); border-bottom: 1px solid var(--line);
+    }
+    table { width: 100%; border-collapse: collapse; font: 12px var(--mono); }
+    thead th {
+      background: var(--panel-2); text-align: left;
+      font: 600 9px var(--mono); letter-spacing: 1.5px; text-transform: uppercase;
+      color: #3f5572; padding: 9px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    tbody td {
+      padding: 9px 14px;
+      border-bottom: 1px solid rgba(34,50,74,.5);
+      color: var(--text); vertical-align: top; line-height: 1.5;
+    }
+    tbody td:first-child { color: var(--accent); font-weight: 700; width: 38%; }
+    tbody td:last-child  { color: var(--muted); font-size: 11px; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: rgba(58,160,255,.03); }
+
+    /* ── team ── */
+    .team-list { display: flex; flex-direction: column; gap: 0; }
+    .team-row {
+      display: grid;
+      grid-template-columns: 36px 200px 1fr auto;
+      align-items: center;
+      gap: 20px;
+      padding: 15px 0;
+      border-bottom: 1px solid rgba(34,50,74,.6);
+    }
+    .team-row:first-child { border-top: 1px solid rgba(34,50,74,.6); }
+    .team-idx {
+      font: 700 11px var(--mono); color: rgba(58,160,255,.35); text-align: center;
+    }
+    .team-name  { font: 600 14px var(--sans); color: var(--text); }
+    .team-role  { font: 400 12px var(--sans); color: var(--muted); margin-top: 2px; }
+    .team-stack { font: 400 11px var(--mono); color: #4a6680; }
+    .team-badge { font: 700 9px var(--mono); letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; }
+    @media (max-width: 640px) {
+      .team-row { grid-template-columns: 32px 1fr; }
+      .team-stack, .team-badge { display: none; }
+    }
+
+    /* ── credits bar ── */
+    .credits-bar {
+      margin-top: 24px; padding: 14px 18px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+      font: 400 12px var(--mono); color: var(--muted); line-height: 1.8;
+    }
+    .credits-bar a { color: var(--accent); text-decoration: none; }
+    .credits-bar a:hover { text-decoration: underline; }
+
+    /* ── footer ── */
+    .footer {
+      margin-top: 72px; padding-top: 24px;
+      border-top: 1px solid var(--line);
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 10px;
+      font: 400 11px var(--mono); color: #3f5572;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- top bar -->
+  <nav class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" class="logo" aria-hidden="true">
+        <rect x="3" y="9" width="26" height="15" rx="1.5" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 12v9M12 12v9M16 12v9M20 12v9M24 12v9" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <div>
+        <div class="brand-name">CargoTwin</div>
+        <div class="brand-sub">System Documentation</div>
+      </div>
+    </div>
+    <a href="index.html" class="back-link">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10 3L5 8l5 5"/>
+      </svg>
+      Dashboard
+    </a>
+  </nav>
+
+  <!-- hero -->
+  <div class="hero">
+    <div>
+      <div class="hero-eyebrow">// Shipment Integrity Monitor · v1.0</div>
+      <h1 class="hero-title"><em>Cargo</em>Twin</h1>
+      <p class="hero-desc">
+        Real-time cargo monitoring using embedded sensors, MQTT telemetry, and a browser-rendered 3D digital twin.
+        Built on ESP32 with MPU6050 and NEO-6M GPS hardware.
+      </p>
+    </div>
+    <div class="hero-meta">
+      <div class="kv"><span>Platform</span><span>ESP32-WROOM-32</span></div>
+      <div class="kv"><span>Protocol</span><span>MQTT / WebSocket</span></div>
+      <div class="kv"><span>Update Rate</span><span>20 Hz</span></div>
+      <div class="kv"><span>Route</span><span>MS Palya → Presidency Univ.</span></div>
+    </div>
+  </div>
+
+  <!-- 01 · Overview -->
+  <div class="section">
+    <div class="section-label">// 01</div>
+    <div class="section-title">Project Overview</div>
+    <div class="two-col">
+      <div>
+        <p>
+          <span class="hi">CargoTwin</span> is an end-to-end IoT platform for monitoring the physical
+          integrity of cargo shipments in real time. An ESP32 microcontroller mounted on a shipping
+          container continuously samples a 6-DOF inertial measurement unit and a GPS receiver,
+          publishing telemetry at 20 Hz over MQTT.
+        </p>
+        <p>
+          The browser dashboard renders a live <span class="hi">3D digital twin</span> of the
+          container that mirrors orientation in real time — driven by raw roll, pitch, and yaw
+          from the MPU6050 — and overlays GPS position on a Leaflet.js map.
+        </p>
+      </div>
+      <div>
+        <p>
+          Shock and tilt events are detected on-device and in-browser, stored in flash memory,
+          and replayed on the 3D twin with incident markers on the map. Impact force is
+          calculated in Newtons from the actual cargo weight the user sets on a slider.
+        </p>
+        <p>
+          A route progress bar tracks the shipment from
+          <span class="hi-ok">MS Palya, Bengaluru</span> to
+          <span class="hi-ok">Presidency University</span>, showing completion percentage,
+          remaining distance, and ETA from live GPS speed.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 · Hardware -->
+  <div class="section">
+    <div class="section-label">// 02</div>
+    <div class="section-title">Hardware Stack</div>
+    <div class="spec-rows">
+      <div class="spec-row">
+        <div class="spec-row-name">ESP32-WROOM-32<small>Microcontroller</small></div>
+        <div class="spec-row-desc">Dual-core 240 MHz Xtensa LX6 MCU with built-in Wi-Fi (802.11 b/g/n).
+        Runs the MQTT publisher, sensor fusion loop, and incident detection at 20 Hz.
+        Flash storage used for buffering events during connectivity loss.</div>
+        <div class="spec-row-tags">
+          <span class="pill">240 MHz</span>
+          <span class="pill">520 KB SRAM</span>
+          <span class="pill ok">Wi-Fi</span>
+        </div>
+      </div>
+      <div class="spec-row">
+        <div class="spec-row-name">MPU6050<small>6-DOF IMU</small></div>
+        <div class="spec-row-desc">3-axis gyroscope (±2000 °/s) and 3-axis accelerometer (±16 g) on a
+        single chip. Communicates via I²C at 400 kHz. Provides raw acceleration vectors for tilt angle,
+        g-force magnitude, roll, pitch computation, and shock detection.</div>
+        <div class="spec-row-tags">
+          <span class="pill">I²C 400 kHz</span>
+          <span class="pill">16-bit ADC</span>
+          <span class="pill dim">0x68</span>
+        </div>
+      </div>
+      <div class="spec-row">
+        <div class="spec-row-name">u-blox NEO-6M<small>GPS Receiver</small></div>
+        <div class="spec-row-desc">50-channel GPS receiver parsing NMEA GPGGA/GPRMC sentences at 1 Hz
+        over UART at 9600 baud. Provides latitude, longitude, speed (km/h), course, satellite count,
+        and fix status. 2.5 m CEP accuracy in open-sky conditions.</div>
+        <div class="spec-row-tags">
+          <span class="pill">2.5 m CEP</span>
+          <span class="pill">UART 9600</span>
+          <span class="pill ok">1–5 Hz</span>
+        </div>
+      </div>
+      <div class="spec-row">
+        <div class="spec-row-name">Mosquitto Broker<small>MQTT Middleware</small></div>
+        <div class="spec-row-desc">Standards-compliant MQTT broker running locally or in the cloud.
+        The dashboard connects via MQTT over WebSocket on port 9001. Subscribes to
+        <code style="color:var(--ok);font-size:11px">shipment/#</code>
+        for telemetry, event, and config packets.</div>
+        <div class="spec-row-tags">
+          <span class="pill">WS :9001</span>
+          <span class="pill dim">QoS 0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 · Software -->
+  <div class="section">
+    <div class="section-label">// 03</div>
+    <div class="section-title">Software Stack</div>
+    <div class="spec-rows">
+      <div class="spec-row">
+        <div class="spec-row-name">Three.js<small>3D Digital Twin</small></div>
+        <div class="spec-row-desc">WebGL-rendered ISO 20ft shipping container with procedural ribbed
+        textures and weathering. Orientation updated at 20 Hz. Supports orbit, ISO, side, end, and top
+        camera views. Incident replay ghosts appear as red transparent overlays at the moment of impact.</div>
+        <div class="spec-row-tags"><span class="pill">WebGL</span><span class="pill dim">r148</span></div>
+      </div>
+      <div class="spec-row">
+        <div class="spec-row-name">Leaflet.js<small>GPS Map</small></div>
+        <div class="spec-row-desc">Lightweight interactive map with ESRI dark-grey tile layer. Plots live
+        GPS track polyline, incident markers (red = tilt, amber = shock), origin / destination pins, and
+        a dashed route reference line between MS Palya and Presidency University.</div>
+        <div class="spec-row-tags"><span class="pill">v1.9</span><span class="pill ok">ESRI tiles</span></div>
+      </div>
+      <div class="spec-row">
+        <div class="spec-row-name">MQTT.js<small>Broker Client</small></div>
+        <div class="spec-row-desc">Browser-native MQTT over WebSocket library. Handles auto-reconnect
+        every 2 s and routes incoming messages — telemetry <code style="color:var(--ok);font-size:11px">{t:"d"}</code>,
+        events <code style="color:var(--warn);font-size:11px">{t:"e"}</code>, config <code style="color:var(--muted);font-size:11px">{t:"cfg"}</code>
+        — to the correct handlers with zero polling.</div>
+        <div class="spec-row-tags"><span class="pill">WS</span><span class="pill dim">Auto-reconnect</span></div>
+      </div>
+      <div class="spec-row">
+        <div class="spec-row-name">Telemetry Pipeline<small>Vanilla JS</small></div>
+        <div class="spec-row-desc">Zero-dependency dashboard logic: incident detection, force calculation
+        (F = m · g · a), Cargo Integrity Score, route progress via haversine distance, CSV export,
+        rolling time-series chart on Canvas, and Web Audio API alerts for shock events.</div>
+        <div class="spec-row-tags"><span class="pill ok">Zero deps</span><span class="pill dim">Canvas API</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 · Pipeline -->
+  <div class="section">
+    <div class="section-label">// 04</div>
+    <div class="section-title">Data Pipeline</div>
+    <div class="pipeline">
+      <div class="pipe-step active">
+        <div class="pipe-node">S01</div>
+        <div class="pipe-name">Sense</div>
+        <div class="pipe-tech">MPU6050 100 Hz<br>NEO-6M 1 Hz NMEA</div>
+      </div>
+      <div class="pipe-step active">
+        <div class="pipe-node">S02</div>
+        <div class="pipe-name">Fuse</div>
+        <div class="pipe-tech">ESP32 firmware<br>tilt · g · incident</div>
+      </div>
+      <div class="pipe-step active">
+        <div class="pipe-node">S03</div>
+        <div class="pipe-name">Publish</div>
+        <div class="pipe-tech">MQTT JSON<br>shipment/id/data</div>
+      </div>
+      <div class="pipe-step active">
+        <div class="pipe-node">S04</div>
+        <div class="pipe-name">Stream</div>
+        <div class="pipe-tech">Broker WS<br>port 9001</div>
+      </div>
+      <div class="pipe-step active">
+        <div class="pipe-node">S05</div>
+        <div class="pipe-name">Render</div>
+        <div class="pipe-tech">3D twin · map<br>chart · alarms</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05 · Sensor Specs -->
+  <div class="section">
+    <div class="section-label">// 05</div>
+    <div class="section-title">Sensor Specifications</div>
+
+    <div class="table-block">
+      <div class="table-block-title">MPU6050 — 6-DOF Inertial Measurement Unit</div>
+      <table>
+        <thead><tr><th>Parameter</th><th>Value</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Accelerometer Range</td><td>±2 / ±4 / ±8 / ±16 g</td><td>Configured ±16 g in firmware</td></tr>
+          <tr><td>Gyroscope Range</td><td>±250 / ±500 / ±1000 / ±2000 °/s</td><td>Configured ±2000 °/s</td></tr>
+          <tr><td>ADC Resolution</td><td>16-bit signed</td><td>32768 LSB/g at ±1 g full scale</td></tr>
+          <tr><td>Interface</td><td>I²C up to 400 kHz</td><td>I²C address: 0x68 or 0x69</td></tr>
+          <tr><td>Sample Rate</td><td>Up to 1 kHz (accel) / 8 kHz (gyro)</td><td>Firmware uses 100 Hz</td></tr>
+          <tr><td>Digital Motion Processor</td><td>Built-in DMP</td><td>Quaternion output support</td></tr>
+          <tr><td>Operating Voltage</td><td>3.3 V / 5 V breakout</td><td>Logic level: 3.3 V</td></tr>
+          <tr><td>Temperature Sensor</td><td>−40 °C to +85 °C, ±1 °C</td><td>Included in telemetry packet</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-block">
+      <div class="table-block-title">NEO-6M — GPS / GNSS Receiver</div>
+      <table>
+        <thead><tr><th>Parameter</th><th>Value</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Receiver Type</td><td>50-channel u-blox 6 engine</td><td>GPS L1 C/A, 1575.42 MHz</td></tr>
+          <tr><td>Position Accuracy</td><td>2.5 m CEP</td><td>Circular Error Probable, open sky</td></tr>
+          <tr><td>Velocity Accuracy</td><td>0.1 m/s</td><td>At steady state</td></tr>
+          <tr><td>Update Rate</td><td>1 Hz default, up to 5 Hz</td><td>Configured 1 Hz in firmware</td></tr>
+          <tr><td>TTFF Cold Start</td><td>&lt; 27 s</td><td>Typical open sky</td></tr>
+          <tr><td>TTFF Hot Start</td><td>&lt; 1 s</td><td>With valid almanac cached</td></tr>
+          <tr><td>Interface</td><td>UART 9600 baud default</td><td>4800–115200 baud configurable</td></tr>
+          <tr><td>Tracking Sensitivity</td><td>−161 dBm</td><td>With active antenna</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 06 · Team -->
+  <div class="section">
+    <div class="section-label">// 06</div>
+    <div class="section-title">Team &amp; Credits</div>
+    <div class="team-list">
+      <div class="team-row">
+        <div class="team-idx">01</div>
+        <div>
+          <div class="team-name">Lead Developer</div>
+          <div class="team-role">Firmware · Backend · Dashboard</div>
+        </div>
+        <div class="team-stack">ESP32 · MQTT · Three.js · Vanilla JS</div>
+        <div class="team-badge">Core</div>
+      </div>
+      <div class="team-row">
+        <div class="team-idx">02</div>
+        <div>
+          <div class="team-name">Hardware Engineer</div>
+          <div class="team-role">Sensor Integration · Circuit Design</div>
+        </div>
+        <div class="team-stack">MPU6050 · NEO-6M · I²C · UART</div>
+        <div class="team-badge">Hardware</div>
+      </div>
+      <div class="team-row">
+        <div class="team-idx">03</div>
+        <div>
+          <div class="team-name">Systems Architect</div>
+          <div class="team-role">MQTT Pipeline · Data Protocol Design</div>
+        </div>
+        <div class="team-stack">Mosquitto · JSON Schema · SQLite</div>
+        <div class="team-badge">Systems</div>
+      </div>
+      <div class="team-row">
+        <div class="team-idx">04</div>
+        <div>
+          <div class="team-name">UI Engineer</div>
+          <div class="team-role">Dashboard Design · Telemetry UX</div>
+        </div>
+        <div class="team-stack">CSS · Leaflet · Canvas API</div>
+        <div class="team-badge">Frontend</div>
+      </div>
+    </div>
+
+    <div class="credits-bar" style="margin-top:22px;">
+      Open-source libraries used:
+      <a href="https://github.com/mrdoob/three.js/" target="_blank">Three.js</a> (WebGL 3D) ·
+      <a href="https://leafletjs.com/" target="_blank">Leaflet.js</a> (interactive maps) ·
+      <a href="https://github.com/mqttjs/MQTT.js" target="_blank">MQTT.js</a> (broker client) ·
+      Map tiles by <a href="https://www.esri.com/" target="_blank">Esri</a> ·
+      Fonts by <a href="https://fonts.google.com/specimen/Space+Grotesk" target="_blank">Google Fonts (Space Grotesk / Space Mono)</a>.
+    </div>
+  </div>
+
+  <!-- footer -->
+  <div class="footer">
+    <span>CargoTwin — Shipment Integrity Monitor · ESP32 + MPU6050 + NEO-6M</span>
+    <a href="index.html">Back to Dashboard</a>
+  </div>
+
+</div>
+</body>
+</html>
