@@ -1,0 +1,2 @@
+flask>=3.0
+paho-mqtt>=2.0  # app.py uses mqtt.CallbackAPIVersion, added in 2.0
