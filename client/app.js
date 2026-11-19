@@ -1,8 +1,8 @@
 /* ============================================================================
  *  CargoTwin dashboard — enhanced with force analytics, route progress,
- *  cargo weight slider, cargo integrity score, and Bengaluru route.
+ *  cargo weight slider, cargo integrity score, and transpacific shipping route.
  *  Data sources:
- *    - Demo : in-browser simulator (sim.js) — MS Palya → Presidency University
+ *    - Demo : in-browser simulator (sim.js) — Port of Shanghai → Port of Los Angeles
  *    - MQTT : local broker via MQTT over WebSocket
  *             Subscribes to  shipment/#
  *             Payload JSON: {t:"d", id, time, tilt, g, roll, pitch, yaw,
@@ -18,9 +18,13 @@
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } },
   };
 
-  /* ── route endpoints (Bengaluru) ── */
-  const ORIGIN = { lat: 12.9516, lng: 77.6412, name: "MS Palya" };
-  const DEST   = { lat: 13.1206, lng: 77.5940, name: "Presidency University" };
+  /* ── route endpoints ── */
+  const ORIGIN = { lat: 31.2304, lng: 121.4737, name: "Port of Shanghai" };
+  const DEST   = { lat: 33.7402, lng: 118.2650, name: "Port of Los Angeles" };
+
+  // Port of Los Angeles is in the Western Hemisphere (118.2650° W = -118.2650° in standard decimal degrees).
+  // Auto-normalize positive 118.2650 to -118.2650 so it targets California instead of inland China.
+  const getDestLng = () => (DEST.lng > 0 && DEST.name && DEST.name.toLowerCase().includes("los angeles") ? -DEST.lng : DEST.lng);
 
   /* ── state ── */
   let source = null;
@@ -265,7 +269,8 @@
 
   function updateRouteProgress(m) {
     if (!m.fix) return;
-    const total   = haversineKm(ORIGIN.lat, ORIGIN.lng, DEST.lat, DEST.lng);
+    const destLng = getDestLng();
+    const total   = haversineKm(ORIGIN.lat, ORIGIN.lng, DEST.lat, destLng);
     const covered = haversineKm(ORIGIN.lat, ORIGIN.lng, m.lat, m.lng);
     const pctRaw  = Math.min(100, Math.max(0, (covered / total) * 100));
     const remain  = Math.max(0, total - covered);
@@ -273,14 +278,20 @@
     $("rpPct").textContent        = pctRaw.toFixed(1) + "%";
     $("rpBarFill").style.width    = pctRaw + "%";
     $("rpTruck").style.left       = pctRaw + "%";
-    $("rpRemain").textContent     = remain.toFixed(2) + " km";
+    $("rpRemain").textContent     = remain.toFixed(1) + " km";
 
     const speedKmh = typeof m.spd === "number" ? m.spd * 1.852 : 0;
     $("rpSpeed").textContent = speedKmh > 0.5 ? speedKmh.toFixed(1) + " km/h" : "—";
     if (speedKmh > 0.5) {
       const etaHrs = remain / speedKmh;
       const etaMins = Math.round(etaHrs * 60);
-      $("rpEta").textContent = etaMins <= 1 ? "ETA: < 1 min" : `ETA: ~${etaMins} min`;
+      if (etaMins > 120) {
+        const hrs = Math.floor(etaHrs);
+        const mins = Math.round((etaHrs - hrs) * 60);
+        $("rpEta").textContent = `ETA: ~${hrs}h ${mins}m`;
+      } else {
+        $("rpEta").textContent = etaMins <= 1 ? "ETA: < 1 min" : `ETA: ~${etaMins} min`;
+      }
     } else {
       $("rpEta").textContent = "ETA: —";
     }
@@ -401,7 +412,8 @@
     tr.classList.add("sel");
     if (!e.fix || !map) return;
     follow = false;
-    map.flyTo([e.lat, e.lng], 14, { duration: 0.8 });
+    const evFlyLng = (e.lng < 0 && ORIGIN.lng > 0) ? (+e.lng + 360) : +e.lng;
+    map.flyTo([e.lat, evFlyLng], 6, { duration: 0.8 });
     const mk = eventMarkers.get(e.id); mk && setTimeout(() => mk.openPopup(), 850);
   });
 
@@ -429,7 +441,8 @@
 
   function initMap() {
     if (typeof L === "undefined") { $("map").innerHTML = '<div class="empty">Map library failed to load.</div>'; return; }
-    map = L.map("map", { zoomControl: true, attributionControl: true }).setView([13.04, 77.62], 11);
+    // Overview of transpacific shipping route
+    map = L.map("map", { zoomControl: true, attributionControl: true }).setView([33.0, 175.0], 2);
     const esri = (svc) => `https://server.arcgisonline.com/ArcGIS/rest/services/${svc}/MapServer/tile/{z}/{y}/{x}`;
     const attr = "Tiles &copy; Esri";
     const dark = L.layerGroup([
@@ -442,9 +455,19 @@
     ]);
     L.control.layers({ "Dark": dark, "Satellite": sat }, null, { position: "bottomleft" }).addTo(map);
 
-    // route dashed line
+    // Keep HTML route progress labels in sync
+    const origLabel = document.querySelector(".rp-orig");
+    if (origLabel) origLabel.innerHTML = `<small>DISPATCH</small>${ORIGIN.name}`;
+    const destLabel = document.querySelector(".rp-dest");
+    if (destLabel) destLabel.innerHTML = `<small>DELIVERY</small>${DEST.name}`;
+
+    const destEffLng = getDestLng();
+    // Continuous longitude for eastward transpacific polyline
+    const destMapLng = destEffLng < 0 && ORIGIN.lng > 0 ? destEffLng + 360 : destEffLng;
+
+    // route dashed line across Pacific
     routeLine = L.polyline(
-      [[ORIGIN.lat, ORIGIN.lng], [DEST.lat, DEST.lng]],
+      [[ORIGIN.lat, ORIGIN.lng], [DEST.lat, destMapLng]],
       { color: "#3aa0ff", weight: 2, opacity: 0.5, dashArray: "8 6" }
     ).addTo(map);
 
@@ -453,22 +476,34 @@
       icon: L.divIcon({ className: "", html: '<div class="origin-marker"></div>', iconSize: [14,14], iconAnchor: [7,7] })
     }).bindPopup(`<b>DISPATCH</b><br>${ORIGIN.name}`).addTo(map);
 
-    destMarker = L.marker([DEST.lat, DEST.lng], {
+    destMarker = L.marker([DEST.lat, destMapLng], {
       icon: L.divIcon({ className: "", html: '<div class="dest-marker"></div>', iconSize: [14,14], iconAnchor: [7,7] })
     }).bindPopup(`<b>DELIVERY</b><br>${DEST.name}`).addTo(map);
+
+    if (destMapLng !== destEffLng) {
+      L.marker([DEST.lat, destEffLng], {
+        icon: L.divIcon({ className: "", html: '<div class="dest-marker"></div>', iconSize: [14,14], iconAnchor: [7,7] })
+      }).bindPopup(`<b>DELIVERY</b><br>${DEST.name}`).addTo(map);
+    }
 
     // live track
     track = L.polyline([], { color: "#3aa0ff", weight: 3, opacity: 0.85 }).addTo(map);
 
     // ship marker
-    shipMarker = L.marker([0, 0], { icon: L.divIcon({ className: "", html: '<div class="ship-marker"></div>', iconSize: [18,18], iconAnchor: [9,9] }) });
+    shipMarker = L.marker([ORIGIN.lat, ORIGIN.lng], { icon: L.divIcon({ className: "", html: '<div class="ship-marker"></div>', iconSize: [18,18], iconAnchor: [9,9] }) });
 
     map.on("dragstart", () => (follow = false));
 
     const FollowCtl = L.Control.extend({
       onAdd() {
         const b = L.DomUtil.create("button", "chip"); b.textContent = "Follow"; b.style.margin = "0";
-        b.onclick = (ev) => { ev.stopPropagation(); follow = true; last && last.fix && map.panTo([last.lat, last.lng]); };
+        b.onclick = (ev) => {
+          ev.stopPropagation(); follow = true;
+          if (last && last.fix) {
+            const pLng = (lastTrackPt ? lastTrackPt[1] : (last.lng < 0 && ORIGIN.lng > 0 ? last.lng + 360 : last.lng));
+            map.panTo([last.lat, pLng]);
+          }
+        };
         return b;
       },
     });
@@ -482,10 +517,20 @@
     if (now - lastMapUpdate < 1000) return;
     lastMapUpdate = now;
     if (!m.fix) { $("pos").textContent = "Waiting for GPS fix…"; return; }
-    const ll = [m.lat, m.lng];
+
     const speedKmh = typeof m.spd === "number" ? (m.spd * 1.852).toFixed(1) : "?";
     $("pos").textContent = `${m.lat.toFixed(5)}, ${m.lng.toFixed(5)} · ${(m.crs ?? 0).toFixed(0)}° · ${speedKmh} km/h`;
-    if (!map.hasLayer(shipMarker)) { shipMarker.addTo(map); map.setView(ll, 12); }
+
+    // Map longitude unwrapping for seamless continuous Pacific crossing
+    let mapLng = m.lng;
+    if (ORIGIN.lng > 0 && mapLng < 0) mapLng += 360;
+    if (lastTrackPt) {
+      while (mapLng - lastTrackPt[1] > 180)  mapLng -= 360;
+      while (mapLng - lastTrackPt[1] < -180) mapLng += 360;
+    }
+    const ll = [m.lat, mapLng];
+
+    if (!map.hasLayer(shipMarker)) { shipMarker.addTo(map); map.setView(ll, 4); }
     shipMarker.setLatLng(ll);
     if (!lastTrackPt || Math.hypot(ll[0]-lastTrackPt[0], ll[1]-lastTrackPt[1]) > 0.00005) {
       track.addLatLng(ll); lastTrackPt = ll;
@@ -500,8 +545,10 @@
       (e.type==="TILT"?`Duration: ${e.phase==="start"?"ongoing":(e.dur/1000).toFixed(1)+" s"}<br>`:"") +
       `${(+e.lat).toFixed(5)}, ${(+e.lng).toFixed(5)}`;
     let mk = eventMarkers.get(e.id);
+    let evLng = +e.lng;
+    if (ORIGIN.lng > 0 && evLng < 0) evLng += 360;
     if (!mk) {
-      mk = L.marker([e.lat, e.lng], { icon: L.divIcon({ className: "", html: `<div class="ev-marker ${esc(e.type)}"></div>`, iconSize: [12,12], iconAnchor: [6,6] }) }).addTo(map);
+      mk = L.marker([e.lat, evLng], { icon: L.divIcon({ className: "", html: `<div class="ev-marker ${esc(e.type)}"></div>`, iconSize: [12,12], iconAnchor: [6,6] }) }).addTo(map);
       eventMarkers.set(e.id, mk);
     }
     mk.bindPopup(html);
